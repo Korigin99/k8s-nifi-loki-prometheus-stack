@@ -1,0 +1,66 @@
+# Loki 단일 노드(SingleBinary)용 values
+# - read/write/backend 분리 없이 Loki 1개 Pod만 사용 → Pending 없음
+# - MinIO 1개 Pod로 오브젝트 스토리지 제공 (개발/테스트용)
+# - 네임스페이스는 install 시 -n kube-monitoring 지정
+
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: true
+  commonConfig:
+    replication_factor: 1
+  useTestSchema: true
+  # SingleBinary에서는 bucket 이름이 MinIO 버킷에 사용됨
+  storage:
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
+      admin: admin
+
+# SingleBinary 1 replica만 기동
+singleBinary:
+  replicas: 1
+
+# SimpleScalable/Distributed 컴포넌트는 0으로 비활성화
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+ingester:
+  replicas: 0
+querier:
+  replicas: 0
+queryFrontend:
+  replicas: 0
+queryScheduler:
+  replicas: 0
+distributor:
+  replicas: 0
+compactor:
+  replicas: 0
+indexGateway:
+  replicas: 0
+bloomCompactor:
+  replicas: 0
+bloomGateway:
+  replicas: 0
+
+# MinIO 사용 (SingleBinary에서 오브젝트 스토리지 필요)
+minio:
+  enabled: true
+
+# 캐시는 단일 노드에서 선택 사항 — 비활성화 시 Pod 수 감소
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Canary 비활성화 시 Pod 수 감소
+lokiCanary:
+  enabled: false
+
+# Canary 없이 설치하려면 Helm 테스트 비활성화 필요 (차트 검증이 Canary 사용을 요구함)
+test:
+  enabled: false

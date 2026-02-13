@@ -1,0 +1,33 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environments
+.env
+*.env
+.venv
+env/
+venv/
+
+# IDEs and editors
+.visualstudio
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+
+# Log files
+*.log
+
+# Dependencies
+node_modules/
+
+프로젝트 정리.txt
+/images

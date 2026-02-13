@@ -1,0 +1,23 @@
+# Loki 다중 노드(SimpleScalable)용 values
+# - read / write / backend가 차트 기본 replica 수로 여러 노드에 분산
+# - 단일 노드용 loki-single-node-values.yaml 은 사용하지 않음
+
+# 기본이 SimpleScalable 이므로 deploymentMode 설정 불필요.
+# 필요 시 replica만 조정하려면 아래 주석 해제.
+
+loki:
+  auth_enabled: true
+  useTestSchema: true
+  storage:
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
+      admin: admin
+
+# 다중 노드에서 HA 원하면 replica 명시 (기본값 쓰려면 생략)
+# read:
+#   replicas: 2
+# write:
+#   replicas: 2
+# backend:
+#   replicas: 2

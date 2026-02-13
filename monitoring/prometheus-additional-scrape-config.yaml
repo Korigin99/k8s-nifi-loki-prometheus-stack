@@ -1,0 +1,26 @@
+# NiFi 메트릭 스크래핑용 추가 설정 (kube-prometheus-stack에서 참조)
+# 적용: kubectl apply -f monitoring/prometheus-additional-scrape-config.yaml
+# Helm에서 사용하려면 prometheus.prometheusSpec.additionalScrapeConfigsExternal 참조 (가이드 참고)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-additional-scrape-configs
+  namespace: monitoring
+stringData:
+  prometheus-additional.yaml: |
+    - job_name: nifi-metrics
+      scrape_interval: 30s
+      scheme: https
+      metrics_path: /nifi-api/flow/metrics/prometheus
+      tls_config:
+        insecure_skip_verify: true
+      basic_auth:
+        username: admin
+        password: "AdminPassword123"
+      static_configs:
+        - targets:
+            - nifi.flowkube-admin.svc.cluster.local:8443
+          labels:
+            namespace: flowkube-admin
+            app: nifi

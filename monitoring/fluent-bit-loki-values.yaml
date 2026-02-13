@@ -1,0 +1,73 @@
+# fluent/fluent-bit Helm 차트용 values — Loki 출력 + 운영 환경 최적화
+---
+image:
+  repository: grafana/fluent-bit-plugin-loki
+  tag: "3.6"
+  pullPolicy: IfNotPresent
+
+config:
+  inputs: |
+    [INPUT]
+        Name                tail
+        Tag                 kube.*
+        Path                /var/log/containers/*.log
+        Parser              cri
+        # 운영: 노드 hostPath(/var/lib/fluent-bit)에 DB 저장 → 재시작 후에도 수집 위치 유지. 아래 extraVolumes/extraVolumeMounts 필수.
+        DB                  /var/lib/fluent-bit/flb_kube.db
+        Mem_Buf_Limit       5MB
+        Skip_Long_Lines     On
+        Refresh_Interval    10
+
+  filters: |
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Merge_Log On
+        Keep_Log Off
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude Off
+        Labels On
+
+  outputs: |
+    [OUTPUT]
+        Name loki
+        Match kube.*
+        Host loki-gateway.kube-monitoring.svc.cluster.local
+        Port 80
+        Tenant_ID 1
+        Uri /loki/api/v1/push
+        Labels job=fluent-bit, namespace=$kubernetes['namespace_name'], instance=$kubernetes['pod_name'], container=$kubernetes['container_name'], job_type=$kubernetes['labels']['job_type'], app=$kubernetes['labels']['app']
+        line_format json
+        auto_kubernetes_labels off
+        remove_keys kubernetes,stream
+
+# [운영 필수] tail DB를 노드 디스크에 저장. 이 볼륨이 없으면 DB 경로에 쓸 수 없어 tail 입력이 실패함.
+# 배포 후 확인: kubectl get cm fluent-bit -n <ns> -o yaml | findstr DB
+#   → DB /var/lib/fluent-bit/flb_kube.db 로 나와야 함. /run/fluent-bit 로 나오면 차트가 inputs를 덮어쓰는지 확인.
+# DB 디렉터리 권한: Pod가 non-root면 노드에서 chown으로 /var/lib/fluent-bit 소유권을 Pod UID에 맞추거나, 차트의 securityContext를 조정.
+extraVolumes:
+  - name: flb-db
+    hostPath:
+      path: /var/lib/fluent-bit
+      type: DirectoryOrCreate
+
+extraVolumeMounts:
+  - name: flb-db
+    mountPath: /var/lib/fluent-bit
+
+extraFiles:
+  labelmap.json: |
+    {
+      "kubernetes": {
+        "container_name": "container",
+        "host": "node",
+        "labels": {
+          "app": "app",
+          "release": "release",
+          "job_type": "job_type"
+        },
+        "namespace_name": "namespace",
+        "pod_name": "instance"
+      },
+      "stream": "stream"
+    }

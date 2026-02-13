@@ -11,8 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 4. 모든 소스 코드 복사
 COPY . .
 
-# 5. 실행할 파일을 환경 변수로 받음 (기본값 app_basic.py)
-ENV APP_NAME=app_basic.py
+# 5. 실행할 파일을 빌드 인자 또는 환경 변수로 받음 (기본값 app_basic.py)
+ARG APP_FILE=app_basic.py
+ENV APP_NAME=${APP_FILE}
 
 # 6. 스크립트 실행
 CMD ["sh", "-c", "python ${APP_NAME}"]

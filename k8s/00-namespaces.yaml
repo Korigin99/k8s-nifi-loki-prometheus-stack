@@ -1,0 +1,14 @@
+# D:\gwkim\git\k8s-nifi-loki-prometheus-stack\k8s\00-namespaces.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flowkube-admin
+  labels:
+    app.kubernetes.io/name: flowkube-admin
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flowkube-jobs
+  labels:
+    app.kubernetes.io/name: flowkube-jobs

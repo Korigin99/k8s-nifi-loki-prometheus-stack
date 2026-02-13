@@ -1,0 +1,59 @@
+# D:\gwkim\git\k8s-nifi-loki-prometheus-stack\k8s\nifi-deployment.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nifi-sa
+  namespace: flowkube-admin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nifi
+  namespace: flowkube-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nifi
+  template:
+    metadata:
+      labels:
+        app: nifi
+    spec:
+      serviceAccountName: nifi-sa
+      containers:
+      - name: nifi
+        image: apache/nifi:2.6.0
+        ports:
+        - containerPort: 8443
+          name: https
+        env:
+        - name: NIFI_WEB_HTTPS_HOST
+          value: "0.0.0.0"
+        - name: NIFI_WEB_HTTPS_PORT
+          value: "8443"
+        - name: SINGLE_USER_CREDENTIALS_USERNAME
+          value: "admin"
+        - name: SINGLE_USER_CREDENTIALS_PASSWORD
+          value: "AdminPassword123"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nifi
+  namespace: flowkube-admin
+spec:
+  type: ClusterIP
+  selector:
+    app: nifi
+  ports:
+  - port: 8443
+    targetPort: 8443
+    name: https

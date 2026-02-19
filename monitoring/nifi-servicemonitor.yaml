@@ -1,0 +1,30 @@
+# monitoring\nifi-servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nifi-monitor
+  namespace: flowkube-monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+    - flowkube-admin
+  selector:
+    matchLabels:
+      app: nifi
+  endpoints:
+  - port: https
+    path: /nifi-api/flow/metrics/prometheus
+    interval: 30s
+    scheme: https
+    relabelings:
+    - targetLabel: __address__
+      replacement: nifi.flowkube-admin.svc.cluster.local:8443
+    tlsConfig:
+      insecureSkipVerify: true
+    authorization:
+      type: Bearer
+      credentials:
+        name: nifi-bearer-token
+        key: token

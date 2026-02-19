@@ -32,12 +32,12 @@ spec:
           value: "0.0.0.0"
         - name: NIFI_WEB_HTTPS_PORT
           value: "8443"
-        - name: NIFI_WEB_PROXY_HOST
-          value: "0.0.0.0:8444"
         - name: SINGLE_USER_CREDENTIALS_USERNAME
           value: "admin"
         - name: SINGLE_USER_CREDENTIALS_PASSWORD
           value: "AdminPassword123"
+        - name: NIFI_WEB_PROXY_HOST
+          value: "nifi.flowkube-admin.svc.cluster.local:8443,nifi.flowkube-admin.svc:8443,localhost:8443"
         resources:
           requests:
             memory: "1Gi"

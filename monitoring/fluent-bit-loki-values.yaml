@@ -32,7 +32,7 @@ config:
     [OUTPUT]
         Name loki
         Match kube.*
-        Host loki-gateway.kube-monitoring.svc.cluster.local
+        Host loki-gateway.flowkube-monitoring.svc.cluster.local
         Port 80
         Tenant_ID 1
         Uri /loki/api/v1/push

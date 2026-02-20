@@ -72,7 +72,7 @@ Apache NiFi를 컨트롤 타워로 사용해 Kubernetes 클러스터에서 Pytho
 
 - Kubernetes 클러스터 (k3s, Rancher Desktop 등)
 - `kubectl` 설정 완료
-- Docker (Python 이미지 빌드용)
+- Rancher Desktop (`containerd`) + `nerdctl` (Python 이미지 빌드용)
 
 ### 1. 네임스페이스 및 NiFi 배포
 
@@ -92,12 +92,17 @@ kubectl port-forward -n flowkube-admin svc/nifi 8443:8443
 
 기본 워커 및 CPU/로그 워커 이미지를 빌드합니다. (레지스트리에 푸시하려면 태그를 자신의 이미지 주소로 변경하세요.)
 
-```bash
+```powershell
 cd python
-docker build -t test-python:basic .
-docker build -t test-python:cpu --build-arg APP_FILE=app_cpu.py .
-docker build -t test-python:log --build-arg APP_FILE=app_log.py .
+$NS = "k8s.io"
+nerdctl --namespace $NS build -t test-python:basic .
+nerdctl --namespace $NS build -t test-python:cpu --build-arg APP_FILE=app_cpu.py .
+nerdctl --namespace $NS build -t test-python:log --build-arg APP_FILE=app_log.py .
+nerdctl --namespace $NS images | findstr test-python
 ```
+
+> 중요: 위 명령은 **이미지를 containerd(`k8s.io`)에 빌드**하는 단계입니다.  
+> 실제 Python 작업 Pod는 NiFi `InvokeHTTP` URL의 namespace 설정에 따라 **`flowkube-jobs`**에 생성됩니다.
 
 ### 3. NiFi 플로우 가져오기
 
@@ -109,24 +114,80 @@ docker build -t test-python:log --build-arg APP_FILE=app_log.py .
    - **SSL Context Service**: 클러스터 내부 TLS용 서비스 연결
    - **Authorization**: `Bearer ${k8s.token}` (토큰은 ExecuteStreamCommand에서 주입)
 
+작업 Pod가 `flowkube-jobs`에 올라오는지 확인:
+
+```powershell
+kubectl get pods -n flowkube-jobs -w
+```
+
+#### Controller Service용 인증서(TrustStore) 생성
+
+```powershell
+kubectl exec -n flowkube-admin deploy/nifi -- keytool -import -alias k8s-api -file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -keystore /opt/nifi/nifi-current/conf/truststore.jks -storepass changeit -noprompt
+```
+
 ---
 
 ## 모니터링 (PLG 스택)
 
-Prometheus, Loki, Grafana는 Helm 등으로 별도 설치한다고 가정합니다.
+다음은 **Loki / Fluent Bit / Prometheus(Grafana 포함)** 를 각각 설치하는 권장 절차입니다.
 
-- **Loki**: Fluent Bit이 수집한 컨테이너 로그 저장  
-- **Fluent Bit**: `k8s/fluent-bit-fix.yaml`은 **monitoring** 네임스페이스에 Loki용 Fluent Bit가 이미 설치되어 있을 때, ConfigMap `loki-fluent-bit-loki`를 갱신하기 위한 것입니다.  
-  - Pod 라벨 `job_type`을 Loki로 전달해 Grafana에서 잡별 로그 필터링 가능  
-  - 적용 후: `kubectl rollout restart daemonset -n monitoring <fluent-bit-daemonset-name>`
+### 1) 네임스페이스 및 Helm Repo 준비
 
-```bash
-kubectl apply -f k8s/fluent-bit-fix.yaml
-# 필요 시 DaemonSet 재시작
+```powershell
+kubectl apply -f monitoring/00-namespace.yaml
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts
+helm repo update
 ```
 
-- **Prometheus**: NiFi 메트릭 엔드포인트 `/nifi-api/flow/metrics/prometheus` 스크래핑  
-- **Grafana**: Loki 데이터소스로 `{namespace="flowkube-jobs"}`, `{job_type="..."}` 등으로 로그 조회
+### 2) Loki 설치 (단일 노드 권장)
+
+Rancher Desktop `k3s` 단일 노드 환경에서는 `SingleBinary` values를 사용합니다.
+
+```powershell
+# 기존 loki가 있으면 삭제 후 재설치
+helm uninstall loki -n flowkube-monitoring
+
+# 단일 노드 values 사용
+helm install loki grafana/loki -n flowkube-monitoring -f monitoring/loki-single-node-values.yaml
+```
+
+멀티 노드 클러스터에서는 `monitoring/loki-multi-node-values.yaml` 또는 차트 기본 분산 모드를 사용하면 됩니다.
+
+### 3) Fluent Bit 설치 (Loki 연동 values 사용)
+
+```powershell
+helm install fluent-bit fluent/fluent-bit -n flowkube-monitoring -f monitoring/fluent-bit-loki-values.yaml
+```
+
+이미 설치된 Fluent Bit 설정을 갱신할 때:
+
+```powershell
+helm upgrade fluent-bit fluent/fluent-bit -n flowkube-monitoring -f monitoring/fluent-bit-loki-values.yaml
+kubectl rollout restart daemonset/fluent-bit -n flowkube-monitoring
+```
+
+### 4) Prometheus + Grafana 설치
+
+```powershell
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n flowkube-monitoring
+```
+
+### 5) 설치 확인
+
+```powershell
+kubectl get pods -n flowkube-monitoring
+```
+
+- **Loki**: Fluent Bit이 수집한 컨테이너 로그 저장
+- **Fluent Bit**: Pod 라벨(`job_type`)을 Loki로 전달
+- **Prometheus**: NiFi 메트릭 엔드포인트 `/nifi-api/flow/metrics/prometheus` 스크래핑
+- **Grafana**: Loki 데이터소스로 `{namespace="flowkube-jobs"}`, `{job_type="..."}` 조회
+
+추가로 loki-stack(일괄 설치) 방식을 사용할 경우, 프로젝트의 `k8s/fluent-bit-fix.yaml`로 labelmap(`job_type`)을 보정한 뒤 Fluent Bit DaemonSet을 재시작하면 됩니다.
 
 ---
 

@@ -122,9 +122,20 @@ kubectl get pods -n flowkube-jobs -w
 
 #### Controller Service용 인증서(TrustStore) 생성
 
+방식 A (빠른 테스트, 비영속):
+
 ```powershell
 kubectl exec -n flowkube-admin deploy/nifi -- keytool -import -alias k8s-api -file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -keystore /opt/nifi/nifi-current/conf/truststore.jks -storepass changeit -noprompt
 ```
+
+방식 B (권장, PVC 영속):
+
+```powershell
+kubectl exec -n flowkube-admin deploy/nifi -- keytool -import -alias k8s-api -file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -keystore /opt/nifi/nifi-current/truststore/truststore.jks -storepass changeit -noprompt
+```
+
+- 방식 A: Pod 재생성 시 `truststore.jks`가 유실될 수 있습니다.
+- 방식 B: `nifi-truststore-pvc`에 저장되어 재시작/재배포 후에도 유지됩니다.
 
 ---
 
@@ -188,9 +199,3 @@ kubectl get pods -n flowkube-monitoring
 - **Grafana**: Loki 데이터소스로 `{namespace="flowkube-jobs"}`, `{job_type="..."}` 조회
 
 추가로 loki-stack(일괄 설치) 방식을 사용할 경우, 프로젝트의 `k8s/fluent-bit-fix.yaml`로 labelmap(`job_type`)을 보정한 뒤 Fluent Bit DaemonSet을 재시작하면 됩니다.
-
----
-
-## 참고 문서
-
-- **프로젝트 정리.txt**: 다중 잡(BASIC/CPU_LOAD/LOG_GEN) 구성, Loki 라벨 설계, Fluent Bit 화이트리스트, JSON/YAML 트러블슈팅 등 상세 정리

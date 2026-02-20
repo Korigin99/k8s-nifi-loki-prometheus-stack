@@ -16,6 +16,13 @@ loki:
       chunks: chunks
       ruler: ruler
       admin: admin
+  compactor:
+    retention_enabled: true      # 보관 주기 관리 활성화
+    retention_delete_delay: 2h   # 삭제 전 2시간 유예 (기본값 권장)
+    delete_request_store: s3     # MinIO를 사용하므로 내부적으로 S3 API를 통해 삭제 요청
+
+  limits_config:
+    retention_period: 30d        # 전체 로그 30일 보관 (원하는 기간으로 수정)
 
 # SingleBinary 1 replica만 기동
 singleBinary:

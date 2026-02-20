@@ -16,6 +16,14 @@ spec:
   endpoints:
   - port: https
     path: /nifi-api/flow/metrics/prometheus
+    params:
+      includedComponents: 
+      - "PROCESSOR"
+      - "CONNECTION"
+      - "PROCESS_GROUP"
+      - "REMOTE_PROCESS_GROUP"
+      - "INPUT_PORT"
+      - "OUTPUT_PORT"
     interval: 30s
     scheme: https
     relabelings:
